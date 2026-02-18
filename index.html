@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exercise Randomizer</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #fff;
+      --card-bg: #0284c7;
+      --card-border: #0369a1;
+      --text: #0c4a6e;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --blue-light: #e0f2fe;
+      --error: #b91c1c;
+      --error-bg: #fef2f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+      color: var(--text);
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      font-size: 0.9375rem;
+    }
+    .controls {
+      margin-bottom: 0.5rem;
+    }
+    .btn {
+      background: var(--accent);
+      color: var(--surface);
+      border: none;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+    .deck-info {
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      margin-bottom: 1.25rem;
+    }
+    .error-msg {
+      background: var(--error-bg);
+      color: var(--error);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 180px);
+      gap: 1rem;
+      justify-content: start;
+    }
+    .card {
+      width: 180px;
+      height: 140px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .card-name {
+      font-weight: 500;
+      font-size: 0.9375rem;
+      color: #fff;
+      line-height: 1.3;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+    .card-meta {
+      flex-shrink: 0;
+    }
+    .badge {
+      font-size: 0.6875rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.25);
+      color: #fff;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Exercise Randomizer</h1>
+    <p class="subtitle">Let's see what we're doing today!</p>
+
+    <div class="controls">
+      <button type="button" class="btn" id="draw5">Draw 5</button>
+    </div>
+
+    <p class="deck-info" id="deckInfo">Deck: —</p>
+    <div class="error-msg" id="errorMsg" role="alert" hidden></div>
+    <div class="cards-grid" id="cardsGrid"></div>
+  </div>
+
+  <script>
+    // ========== DECK (edit exercises here) ==========
+    // Each exercise: id, name, category (core | hinge | squat_lunge | push | pull | carry | mobility), level (safe | caution)
+    const DECK = [
+      { id: '1', name: 'Wall standing clamshells', category: 'mobility', level: 'caution' },
+      { id: '2', name: 'Cat-dog, bird-dog', category: 'core', level: 'caution' },
+      { id: '3', name: 'Dead bug', category: 'core', level: 'caution' },
+      { id: '4', name: 'Hip bridge', category: 'hinge', level: 'caution' },
+      { id: '5', name: 'Towel exercise', category: 'pull', level: 'caution' },
+      { id: '6', name: 'Walk with the strap', category: 'carry', level: 'safe' },
+      { id: '7', name: 'Step up', category: 'squat_lunge', level: 'safe' },
+      { id: '8', name: 'Chair sitting', category: 'squat_lunge', level: 'caution' },
+      { id: '9', name: 'Side plank', category: 'core', level: 'safe' },
+      { id: '10', name: 'Plank on the ball', category: 'core', level: 'safe' },
+      { id: '11', name: 'Single leg squat', category: 'squat_lunge', level: 'safe' },
+      { id: '12', name: 'Single Limb deadlift', category: 'hinge', level: 'safe' },
+      { id: '13', name: 'Wall sit 1 min', category: 'squat_lunge', level: 'safe' },
+      { id: '14', name: 'Hip bridge with 1 leg straight in the air', category: 'hinge', level: 'safe' },
+    ];
+
+    // ========== HELPERS ==========
+    const LOWER = ['hinge', 'squat_lunge'];
+    const UPPER = ['push', 'pull'];
+
+    function getCategoryGroup(cat) {
+      if (cat === 'core') return 'core';
+      if (LOWER.includes(cat)) return 'lower';
+      if (UPPER.includes(cat)) return 'upper';
+      return 'other';
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function sample(arr, n) {
+      const s = shuffle(arr);
+      return s.slice(0, n);
+    }
+
+    function pickOne(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function countByGroup(exercises) {
+      let core = 0, lower = 0, upper = 0;
+      exercises.forEach(e => {
+        const g = getCategoryGroup(e.category);
+        if (g === 'core') core++;
+        else if (g === 'lower') lower++;
+        else if (g === 'upper') upper++;
+      });
+      return { core, lower, upper };
+    }
+
+    function buildPool(deck) {
+      const pool = deck;
+      const core = pool.filter(e => e.category === 'core');
+      const lower = pool.filter(e => LOWER.includes(e.category));
+      const upper = pool.filter(e => UPPER.includes(e.category));
+      return { pool, core, lower, upper };
+    }
+
+    function constraintErrors(pool) {
+      const msg = [];
+      if (pool.core.length === 0) msg.push('Add at least 1 core exercise');
+      if (pool.lower.length === 0) msg.push('Add at least 1 hinge or squat/lunge exercise');
+      if (pool.upper.length === 0) msg.push('Add at least 1 push or pull exercise');
+      if (pool.pool.length < 5) msg.push('Deck has only ' + pool.pool.length + ' exercises; need at least 5');
+      return msg;
+    }
+
+    function drawFiveFromPool(pool, excludeIds) {
+      const exclude = new Set(excludeIds || []);
+      const available = (arr) => arr.filter(e => !exclude.has(e.id));
+      const core = available(pool.core);
+      const lower = available(pool.lower);
+      const upper = available(pool.upper);
+      const rest = available(pool.pool);
+
+      const chosen = [];
+      const used = new Set();
+
+      function addOne(list) {
+        const opts = list.filter(e => !used.has(e.id));
+        if (opts.length === 0) return null;
+        const one = pickOne(opts);
+        chosen.push(one);
+        used.add(one.id);
+        return one;
+      }
+
+      if (core.length) addOne(core);
+      if (lower.length) addOne(lower);
+      if (upper.length) addOne(upper);
+
+      const need = 5 - chosen.length;
+      const restFiltered = rest.filter(e => !used.has(e.id));
+      if (restFiltered.length < need) return null;
+      const extra = sample(restFiltered, need);
+      extra.forEach(e => { chosen.push(e); used.add(e.id); });
+
+      return shuffle(chosen);
+    }
+
+    // ========== STATE & DOM ==========
+    let currentSession = [];
+
+    function updateDeckInfo() {
+      document.getElementById('deckInfo').textContent = 'Deck: ' + DECK.length + ' exercises';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.hidden = false;
+    }
+
+    function clearError() {
+      document.getElementById('errorMsg').hidden = true;
+    }
+
+    function renderCards() {
+      const grid = document.getElementById('cardsGrid');
+      grid.innerHTML = '';
+      currentSession.forEach((ex, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+          '<div class="card-name">' + escapeHtml(ex.name) + '</div>' +
+          '<div class="card-meta">' +
+            '<span class="badge">' + escapeHtml(ex.category) + '</span>' +
+          '</div>';
+        grid.appendChild(card);
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function drawFive() {
+      clearError();
+      const pool = buildPool(DECK);
+      const errors = constraintErrors(pool);
+      if (errors.length) {
+        showError(errors.join('. '));
+        return;
+      }
+      const five = drawFiveFromPool(pool);
+      if (!five) {
+        showError('Could not build a balanced set. Add more variety (core, hinge/squat, push/pull).');
+        return;
+      }
+      currentSession = five;
+      renderCards();
+    }
+
+    document.getElementById('draw5').addEventListener('click', drawFive);
+
+    updateDeckInfo();
+  </script>
+</body>
+</html>
